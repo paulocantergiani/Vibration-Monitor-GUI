@@ -1,0 +1,16 @@
+# Dependências da Interface Gráfica - Entrega 4
+# Instituto Militar de Engenharia
+# Projeto: Monitoramento Inteligente de Carga
+
+# PyQt5 para interface gráfica
+PyQt5==5.15.9
+PyQtWebEngine==5.15.6
+
+# Matplotlib para gráficos avançados (opcional)
+matplotlib==3.8.2
+
+# Numpy para cálculos numéricos (opcional)
+numpy==1.24.3
+
+# Pandas para manipulação de dados CSV (opcional)
+pandas==2.0.3
