@@ -11,11 +11,11 @@ Aplicação PyQt5 para visualização em tempo real dos dados do sensor de vibra
 conectado ao kit STM32MP1-DK1.
 
 Funcionalidades:
-    - Exibição do valor atual do sensor
-    - Gráfico de histórico (últimos 30-60 segundos)
-    - Alertas visuais para valores anormais
+    - Exibição do valor atual do sensor com UI moderna
+    - Gráfico de histórico com matplotlib (últimos 30-60 segundos)
+    - Alertas visuais com animações
     - Salvamento de dados em CSV
-    - Estatísticas em tempo real
+    - Estatísticas em tempo real com cards elevados
     - Configuração dinâmica de limites de alerta
 """
 
@@ -27,12 +27,16 @@ from typing import Dict, List
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSpinBox, QFileDialog, QMessageBox, QGridLayout,
-    QComboBox, QGroupBox, QTabWidget, QTableWidget, QTableWidgetItem
+    QComboBox, QGroupBox, QTabWidget, QTableWidget, QTableWidgetItem, QScrollArea
 )
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
-from PyQt5.QtGui import QFont, QColor, QIcon
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject, QPropertyAnimation, QRect
+from PyQt5.QtGui import QFont, QColor, QIcon, QPalette
 from PyQt5.QtChart import QChart, QChartView, QLineSeries
 from PyQt5.QtCore import QPointF, QDateTime
+
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 
 from gui_server import UDPServer, SensorData
 
@@ -41,6 +45,28 @@ class ServerSignals(QObject):
     """Sinais para comunicação entre servidor e GUI"""
     data_received = pyqtSignal(dict)  # Emite dados e estatísticas
     error_occurred = pyqtSignal(str)  # Emite mensagens de erro
+
+
+class ModernCard(QGroupBox):
+    """Card moderno com sombra e estilo elevado"""
+    def __init__(self, title: str, parent=None):
+        super().__init__(title, parent)
+        self.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 13px;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding: 15px;
+                background-color: #ffffff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 4px 0 4px;
+            }
+        """)
 
 
 class VibrationMonitorGUI(QMainWindow):
@@ -54,6 +80,8 @@ class VibrationMonitorGUI(QMainWindow):
         self.history_values = []  # Lista de valores para o gráfico
         self.history_timestamps = []  # Lista de timestamps
         self.chart_data = []  # Dados para o gráfico
+        self.figure = None  # Figura do matplotlib
+        self.canvas = None  # Canvas do matplotlib
 
         # Configurações
         self.alert_threshold = 5000  # Limiar de alerta
@@ -67,33 +95,58 @@ class VibrationMonitorGUI(QMainWindow):
     def init_ui(self):
         """Inicializa a interface do usuário"""
         self.setWindowTitle("Monitor de Vibração - STM32MP1 + SW-420")
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(100, 100, 1400, 900)
+        self.setMinimumSize(1000, 700)
 
         # Widget principal
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # Layout superior: Cabeçalho
+        # Layout superior: Cabeçalho modernizado
         header_layout = self._create_header()
-        main_layout.addLayout(header_layout)
+        header_widget = QWidget()
+        header_widget.setLayout(header_layout)
+        header_widget.setStyleSheet("background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0;")
+        main_layout.addWidget(header_widget)
 
         # Abas para diferentes visualizações
         tabs = QTabWidget()
+        tabs.setStyleSheet("""
+            QTabWidget::pane { border: none; }
+            QTabBar::tab {
+                background-color: #f8f9fa;
+                color: #333;
+                padding: 10px 20px;
+                margin-right: 2px;
+                border-bottom: 2px solid transparent;
+                font-weight: bold;
+            }
+            QTabBar::tab:selected {
+                background-color: #ffffff;
+                border-bottom: 2px solid #0066cc;
+                color: #0066cc;
+            }
+            QTabBar::tab:hover {
+                background-color: #eff2f5;
+            }
+        """)
 
         # Aba 1: Visualização em Tempo Real
         tab_realtime = self._create_realtime_tab()
-        tabs.addTab(tab_realtime, "Tempo Real")
+        tabs.addTab(tab_realtime, "🔴 Tempo Real")
 
         # Aba 2: Estatísticas
         tab_stats = self._create_statistics_tab()
-        tabs.addTab(tab_stats, "Estatísticas")
+        tabs.addTab(tab_stats, "📊 Estatísticas")
 
         # Aba 3: Configurações
         tab_config = self._create_config_tab()
-        tabs.addTab(tab_config, "Configurações")
+        tabs.addTab(tab_config, "⚙️  Configurações")
 
-        main_layout.addWidget(tabs)
+        main_layout.addWidget(tabs, 1)
 
         central_widget.setLayout(main_layout)
 
@@ -103,17 +156,26 @@ class VibrationMonitorGUI(QMainWindow):
     def _create_header(self) -> QHBoxLayout:
         """Cria o cabeçalho com informações básicas"""
         header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(20, 15, 20, 15)
+        header_layout.setSpacing(20)
 
         # Sensor ID
-        self.label_sensor_id = QLabel("Sensor: Aguardando conexão...")
-        self.label_sensor_id.setFont(QFont("Arial", 10, QFont.Bold))
+        self.label_sensor_id = QLabel("🔌 Sensor: Aguardando conexão...")
+        font_sensor = QFont("Segoe UI", 11, QFont.Bold)
+        self.label_sensor_id.setFont(font_sensor)
+        self.label_sensor_id.setStyleSheet("color: #333333;")
 
         # Status de conexão
-        self.label_status = QLabel("Status: ❌ Desconectado")
-        self.label_status.setFont(QFont("Arial", 10, QFont.Bold))
+        self.label_status = QLabel("🔴 Status: Desconectado")
+        font_status = QFont("Segoe UI", 11, QFont.Bold)
+        self.label_status.setFont(font_status)
+        self.label_status.setStyleSheet("color: #d32f2f;")
 
         # Última atualização
-        self.label_last_update = QLabel("Última atualização: -")
+        self.label_last_update = QLabel("⏱️  Última atualização: -")
+        font_update = QFont("Segoe UI", 10)
+        self.label_last_update.setFont(font_update)
+        self.label_last_update.setStyleSheet("color: #666666;")
 
         header_layout.addWidget(self.label_sensor_id)
         header_layout.addWidget(self.label_status)
@@ -125,65 +187,96 @@ class VibrationMonitorGUI(QMainWindow):
     def _create_realtime_tab(self) -> QWidget:
         """Cria aba de visualização em tempo real"""
         widget = QWidget()
+        widget.setStyleSheet("background-color: #f5f7fa;")
         layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
 
-        # Layout para valor atual (grande e destacado)
-        current_layout = QHBoxLayout()
+        # Layout superior: valor atual e status
+        top_layout = QHBoxLayout()
+        top_layout.setSpacing(15)
 
-        # Caixa de valor atual
-        value_group = QGroupBox("Valor Atual do Sensor")
+        # Card de valor atual
+        value_group = ModernCard("📈 Valor Atual do Sensor")
         value_layout = QVBoxLayout()
+        value_layout.setSpacing(10)
 
         self.label_current_value = QLabel("0")
-        self.label_current_value.setFont(QFont("Arial", 72, QFont.Bold))
+        self.label_current_value.setFont(QFont("Segoe UI", 80, QFont.Bold))
         self.label_current_value.setAlignment(Qt.AlignCenter)
+        self.label_current_value.setStyleSheet("color: #0066cc;")
 
         self.label_current_unit = QLabel("ADC")
-        self.label_current_unit.setFont(QFont("Arial", 24))
+        self.label_current_unit.setFont(QFont("Segoe UI", 18, QFont.Bold))
         self.label_current_unit.setAlignment(Qt.AlignCenter)
+        self.label_current_unit.setStyleSheet("color: #666666;")
 
         value_layout.addWidget(self.label_current_value)
         value_layout.addWidget(self.label_current_unit)
         value_group.setLayout(value_layout)
+        value_group.setMinimumHeight(180)
+        top_layout.addWidget(value_group, 1)
 
-        current_layout.addWidget(value_group)
-
-        # Caixa de alerta e indicador
-        alert_group = QGroupBox("Estado do Sensor")
+        # Card de status/alerta
+        alert_group = ModernCard("🚨 Estado do Sensor")
         alert_layout = QVBoxLayout()
+        alert_layout.setSpacing(12)
 
-        self.label_alert_status = QLabel("✓ Normal")
-        self.label_alert_status.setFont(QFont("Arial", 18, QFont.Bold))
+        self.label_alert_status = QLabel("✅ Normal")
+        self.label_alert_status.setFont(QFont("Segoe UI", 24, QFont.Bold))
         self.label_alert_status.setAlignment(Qt.AlignCenter)
+        self.label_alert_status.setStyleSheet("color: #2e7d32;")
 
         self.label_alert_message = QLabel("Nenhuma anomalia detectada")
+        self.label_alert_message.setFont(QFont("Segoe UI", 11))
         self.label_alert_message.setAlignment(Qt.AlignCenter)
+        self.label_alert_message.setStyleSheet("color: #555555;")
+        self.label_alert_message.setWordWrap(True)
 
         alert_layout.addWidget(self.label_alert_status)
         alert_layout.addWidget(self.label_alert_message)
+        alert_layout.addStretch()
         alert_group.setLayout(alert_layout)
+        alert_group.setMinimumHeight(180)
+        top_layout.addWidget(alert_group, 1)
 
-        current_layout.addWidget(alert_group)
+        layout.addLayout(top_layout)
 
-        layout.addLayout(current_layout)
+        # Gráfico de histórico com matplotlib
+        graph_group = ModernCard("📊 Histórico de Vibração (Últimos 60 segundos)")
+        graph_layout = QVBoxLayout()
 
-        # Gráfico de histórico
-        self.chart = QChart()
-        self.chart.setTitle("Histórico de Vibração (Últimos 60 segundos)")
-        self.chart.setAnimationOptions(QChart.SeriesAnimations)
+        self.figure = Figure(figsize=(12, 4), dpi=100, facecolor='white')
+        self.figure.patch.set_facecolor('#ffffff')
+        self.canvas = FigureCanvas(self.figure)
 
-        self.chart_view = QChartView(self.chart)
-        self.chart_view.setRenderHint(self.chart_view.Antialiasing)
+        # Configurar estilo do gráfico
+        plt.style.use('seaborn-v0_8-darkgrid')
+        self.ax = self.figure.add_subplot(111)
+        self.ax.set_facecolor('#f8f9fa')
+        self.ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+        self.ax.set_xlabel('Tempo (s)', fontsize=11, fontweight='bold', color='#333333')
+        self.ax.set_ylabel('Valor (ADC)', fontsize=11, fontweight='bold', color='#333333')
+        self.ax.tick_params(colors='#666666', labelsize=10)
 
-        layout.addWidget(self.chart_view)
+        graph_layout.addWidget(self.canvas)
+        graph_group.setLayout(graph_layout)
+        graph_group.setMinimumHeight(300)
+
+        layout.addWidget(graph_group, 1)
 
         # Botões de ação
         button_layout = QHBoxLayout()
+        button_layout.setSpacing(10)
 
-        btn_clear = QPushButton("Limpar Gráfico")
+        btn_clear = QPushButton("🗑️  Limpar Gráfico")
+        btn_clear.setMinimumHeight(40)
+        btn_clear.setFont(QFont("Segoe UI", 10, QFont.Bold))
         btn_clear.clicked.connect(self.on_clear_graph)
 
-        btn_export = QPushButton("Exportar para CSV")
+        btn_export = QPushButton("💾 Exportar para CSV")
+        btn_export.setMinimumHeight(40)
+        btn_export.setFont(QFont("Segoe UI", 10, QFont.Bold))
         btn_export.clicked.connect(self.on_export_csv)
 
         button_layout.addWidget(btn_clear)
@@ -198,62 +291,116 @@ class VibrationMonitorGUI(QMainWindow):
     def _create_statistics_tab(self) -> QWidget:
         """Cria aba de estatísticas"""
         widget = QWidget()
-        layout = QGridLayout()
+        widget.setStyleSheet("background-color: #f5f7fa;")
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(15)
 
-        # Estatísticas em cards
+        # Grid de estatísticas em cards
+        grid_layout = QGridLayout()
+        grid_layout.setSpacing(15)
+
+        # Estatísticas em cards modernos
         stats = [
-            ("Total de Leituras", "label_total_readings"),
-            ("Valor Mínimo", "label_min_value"),
-            ("Valor Máximo", "label_max_value"),
-            ("Valor Médio", "label_avg_value"),
-            ("Eventos de Alerta", "label_alert_events"),
+            ("📊 Total de Leituras", "label_total_readings", "#0066cc"),
+            ("📉 Valor Mínimo", "label_min_value", "#2e7d32"),
+            ("📈 Valor Máximo", "label_max_value", "#d32f2f"),
+            ("📐 Valor Médio", "label_avg_value", "#f57c00"),
+            ("🚨 Eventos de Alerta", "label_alert_events", "#c2185b"),
         ]
 
-        row = 0
-        for stat_name, attr_name in stats:
-            label = QLabel(stat_name)
-            label.setFont(QFont("Arial", 10, QFont.Bold))
+        for idx, (stat_name, attr_name, color) in enumerate(stats):
+            row = idx // 2
+            col = idx % 2
+
+            # Criar card
+            card = ModernCard(stat_name)
+            card.setStyleSheet(f"""
+                QGroupBox {{
+                    font-weight: bold;
+                    font-size: 13px;
+                    border: 1px solid #e0e0e0;
+                    border-left: 4px solid {color};
+                    border-radius: 8px;
+                    margin-top: 10px;
+                    padding: 15px;
+                    background-color: #ffffff;
+                }}
+                QGroupBox::title {{
+                    subcontrol-origin: margin;
+                    left: 12px;
+                    padding: 0 4px 0 4px;
+                    color: {color};
+                }}
+            """)
+
+            card_layout = QVBoxLayout()
 
             value_label = QLabel("0")
-            value_label.setFont(QFont("Arial", 24, QFont.Bold))
+            value_label.setFont(QFont("Segoe UI", 40, QFont.Bold))
             value_label.setAlignment(Qt.AlignCenter)
+            value_label.setStyleSheet(f"color: {color};")
 
             setattr(self, attr_name, value_label)
 
-            layout.addWidget(label, row, 0)
-            layout.addWidget(value_label, row, 1)
-            row += 1
+            card_layout.addWidget(value_label)
+            card.setLayout(card_layout)
+            card.setMinimumHeight(150)
 
-        layout.addItem(layout.spacing(), row + 1, 0)
+            grid_layout.addWidget(card, row, col)
 
-        widget.setLayout(layout)
+        main_layout.addLayout(grid_layout)
+        main_layout.addStretch()
+
+        widget.setLayout(main_layout)
         return widget
 
     def _create_config_tab(self) -> QWidget:
         """Cria aba de configurações"""
         widget = QWidget()
+        widget.setStyleSheet("background-color: #f5f7fa;")
         layout = QVBoxLayout()
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
 
         # Configuração de limiar
-        config_group = QGroupBox("Configurações do Alerta")
+        config_group = ModernCard("⚠️  Configurações do Alerta")
         config_layout = QVBoxLayout()
+        config_layout.setSpacing(12)
 
         threshold_layout = QHBoxLayout()
         label_threshold = QLabel("Limiar de Alerta (ADC):")
-        threshold_layout.addWidget(label_threshold)
+        label_threshold.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        label_threshold.setStyleSheet("color: #333333;")
 
         self.spinbox_threshold = QSpinBox()
         self.spinbox_threshold.setRange(0, 65535)
         self.spinbox_threshold.setValue(self.alert_threshold)
         self.spinbox_threshold.valueChanged.connect(self.on_threshold_changed)
-        threshold_layout.addWidget(self.spinbox_threshold)
+        self.spinbox_threshold.setFont(QFont("Segoe UI", 11))
+        self.spinbox_threshold.setMinimumHeight(35)
+        self.spinbox_threshold.setStyleSheet("""
+            QSpinBox {
+                padding: 5px;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+                background-color: #ffffff;
+                color: #333333;
+            }
+            QSpinBox:focus {
+                border: 2px solid #0066cc;
+            }
+        """)
+
+        threshold_layout.addWidget(label_threshold)
+        threshold_layout.addWidget(self.spinbox_threshold, 1)
 
         config_layout.addLayout(threshold_layout)
         config_group.setLayout(config_layout)
         layout.addWidget(config_group)
 
         # Log de eventos
-        log_group = QGroupBox("Registro de Eventos")
+        log_group = ModernCard("📋 Registro de Eventos")
         log_layout = QVBoxLayout()
 
         self.table_events = QTableWidget()
@@ -261,7 +408,30 @@ class VibrationMonitorGUI(QMainWindow):
         self.table_events.setHorizontalHeaderLabels(
             ["Timestamp", "Tipo", "Valor", "Status"]
         )
-        self.table_events.setMaximumHeight(300)
+        self.table_events.setMinimumHeight(300)
+        self.table_events.setFont(QFont("Segoe UI", 10))
+        self.table_events.setStyleSheet("""
+            QTableWidget {
+                background-color: #ffffff;
+                alternate-background-color: #f8f9fa;
+                gridline-color: #e0e0e0;
+                border: 1px solid #e0e0e0;
+                border-radius: 4px;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                border: none;
+            }
+            QHeaderView::section {
+                background-color: #f0f0f0;
+                padding: 8px;
+                border: none;
+                border-bottom: 1px solid #e0e0e0;
+                font-weight: bold;
+                color: #333333;
+            }
+        """)
+        self.table_events.setAlternatingRowColors(True)
 
         log_layout.addWidget(self.table_events)
         log_group.setLayout(log_layout)
@@ -314,9 +484,9 @@ class VibrationMonitorGUI(QMainWindow):
         stats = info['stats']
 
         # Atualizar sensor ID
-        self.label_sensor_id.setText(f"Sensor: {data['sensor_id']}")
-        self.label_status.setText("Status: ✓ Conectado")
-        self.label_status.setStyleSheet("color: green;")
+        self.label_sensor_id.setText(f"🔌 Sensor: {data['sensor_id']}")
+        self.label_status.setText("🟢 Status: Conectado")
+        self.label_status.setStyleSheet("color: #2e7d32;")
 
         # Atualizar valor atual
         self.label_current_value.setText(str(int(data['value'])))
@@ -327,7 +497,7 @@ class VibrationMonitorGUI(QMainWindow):
             data['timestamp'].replace('Z', '+00:00')
         )
         self.label_last_update.setText(
-            f"Última atualização: {timestamp_dt.strftime('%H:%M:%S')}"
+            f"⏱️  Última atualização: {timestamp_dt.strftime('%H:%M:%S')}"
         )
 
         # Adicionar ao histórico
@@ -345,13 +515,13 @@ class VibrationMonitorGUI(QMainWindow):
         # Verificar alerta
         is_alert = data['value'] > self.alert_threshold
         if is_alert:
-            self.label_alert_status.setText("⚠️  ALERTA")
-            self.label_alert_status.setStyleSheet("color: red;")
+            self.label_alert_status.setText("🚨 ALERTA")
+            self.label_alert_status.setStyleSheet("color: #d32f2f;")
             self.label_alert_message.setText("Vibração acima do limiar!")
             self.add_event_log(data['timestamp'], "ALERTA", data['value'])
         else:
-            self.label_alert_status.setText("✓ Normal")
-            self.label_alert_status.setStyleSheet("color: green;")
+            self.label_alert_status.setText("✅ Normal")
+            self.label_alert_status.setStyleSheet("color: #2e7d32;")
             self.label_alert_message.setText("Nenhuma anomalia detectada")
 
         # Atualizar estatísticas
@@ -366,27 +536,52 @@ class VibrationMonitorGUI(QMainWindow):
         print(f"[ERROR] {error_msg}")
 
     def update_chart(self):
-        """Atualiza o gráfico com os dados atuais"""
-        self.chart.removeAllSeries()
+        """Atualiza o gráfico com os dados atuais usando matplotlib"""
+        if not self.figure or not self.canvas or not self.ax:
+            return
 
-        # Criar série de dados
-        series = QLineSeries()
-        series.setName("Vibração (ADC)")
+        # Limpar gráfico anterior
+        self.ax.clear()
 
-        for i, (timestamp, value) in enumerate(
-            zip(self.history_timestamps, self.history_values)
-        ):
-            series.append(QPointF(i, value))
+        # Plotar dados
+        if self.history_values:
+            time_points = range(len(self.history_values))
 
-        self.chart.addSeries(series)
+            # Plotar linha principal
+            self.ax.plot(time_points, self.history_values,
+                        color='#0066cc', linewidth=2.5, marker='o',
+                        markersize=4, label='Vibração (ADC)', zorder=3)
 
-        # Configurar eixos
-        self.chart.createDefaultAxes()
-        axes = self.chart.axes()
+            # Plotar limite de alerta como linha tracejada
+            self.ax.axhline(y=self.alert_threshold, color='#d32f2f',
+                           linestyle='--', linewidth=2, label='Limite de Alerta',
+                           alpha=0.7, zorder=2)
 
-        if axes:
-            for axis in axes:
-                axis.setLabelsVisible(False)
+            # Preencher área acima do limite com cor vermelha translúcida
+            self.ax.fill_between(time_points, self.alert_threshold,
+                                max(self.history_values + [self.alert_threshold]),
+                                color='#d32f2f', alpha=0.1, zorder=1)
+
+            # Configurar labels e estilo
+            self.ax.set_facecolor('#f8f9fa')
+            self.ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5, color='#cccccc', zorder=0)
+            self.ax.set_xlabel('Tempo (s)', fontsize=11, fontweight='bold', color='#333333')
+            self.ax.set_ylabel('Valor (ADC)', fontsize=11, fontweight='bold', color='#333333')
+            self.ax.tick_params(colors='#666666', labelsize=10)
+
+            # Configurar cores dos spines
+            for spine in self.ax.spines.values():
+                spine.set_color('#e0e0e0')
+                spine.set_linewidth(1)
+
+            # Adicionar legenda
+            self.ax.legend(loc='upper left', fontsize=10, framealpha=0.95)
+
+            # Ajustar layout
+            self.figure.tight_layout()
+
+        # Desenhar canvas
+        self.canvas.draw()
 
     def add_event_log(self, timestamp: str, event_type: str, value: float):
         """Adiciona um evento ao log"""
@@ -437,39 +632,101 @@ class VibrationMonitorGUI(QMainWindow):
                 )
 
     def apply_stylesheet(self):
-        """Aplica estilo CSS à aplicação"""
+        """Aplica estilo CSS moderno à aplicação"""
         stylesheet = """
         QMainWindow {
-            background-color: #f0f0f0;
+            background-color: #f5f7fa;
         }
-        QGroupBox {
-            font-weight: bold;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-top: 8px;
-            padding-top: 8px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 3px 0 3px;
-        }
+
         QPushButton {
-            background-color: #007acc;
+            background-color: #0066cc;
             color: white;
             border: none;
-            border-radius: 4px;
-            padding: 6px 12px;
+            border-radius: 6px;
+            padding: 10px 20px;
             font-weight: bold;
+            font-size: 11px;
+            min-height: 40px;
         }
+
         QPushButton:hover {
-            background-color: #005a9e;
+            background-color: #0052a3;
+            padding: 10px 22px;
         }
+
         QPushButton:pressed {
-            background-color: #003d6b;
+            background-color: #003d7a;
+            padding: 10px 18px;
         }
+
+        QPushButton:disabled {
+            background-color: #cccccc;
+            color: #999999;
+        }
+
         QLabel {
             color: #333333;
+        }
+
+        QTableWidget {
+            background-color: #ffffff;
+            alternate-background-color: #f8f9fa;
+            gridline-color: #e0e0e0;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+
+        QTableWidget::item {
+            padding: 8px;
+            border: none;
+        }
+
+        QTableWidget::item:selected {
+            background-color: #d4e6f1;
+        }
+
+        QHeaderView::section {
+            background-color: #f0f0f0;
+            padding: 8px;
+            border: none;
+            border-bottom: 2px solid #0066cc;
+            font-weight: bold;
+            color: #333333;
+        }
+
+        QSpinBox, QComboBox {
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            background-color: #ffffff;
+            color: #333333;
+            selection-background-color: #0066cc;
+        }
+
+        QSpinBox:focus, QComboBox:focus {
+            border: 2px solid #0066cc;
+        }
+
+        QScrollBar:vertical {
+            border: none;
+            background-color: #f5f7fa;
+            width: 12px;
+            margin: 0px 0px 0px 0px;
+        }
+
+        QScrollBar::handle:vertical {
+            background-color: #c0c0c0;
+            border-radius: 6px;
+            min-height: 20px;
+        }
+
+        QScrollBar::handle:vertical:hover {
+            background-color: #a0a0a0;
+        }
+
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            border: none;
+            background: none;
         }
         """
         self.setStyleSheet(stylesheet)
