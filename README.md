@@ -4,23 +4,19 @@
 
 Interface gráfica em **PyQt5** para visualização em tempo real dos dados do sensor de vibração **SW-420** conectado ao kit **STM32MP1-DK1**.
 
-Este repositório contém a **Entrega 4** do projeto de Programação Aplicada do **Instituto Militar de Engenharia (IME)**, focando na parte de interface de monitoramento em computador pessoal.
 
 ---
 
 ## 🎯 Funcionalidades
 
-### Requisitos Obrigatórios
-- ✅ **Valor atual do sensor** - Exibição em tempo real com fonte grande e destacada
-- ✅ **Histórico gráfico** - Gráfico dos últimos 30-60 segundos de vibração
-- ✅ **Alertas visuais** - Indicadores de cor (verde=normal, vermelho=alerta) para valores fora dos limites
-- ✅ **Salvamento de dados** - Exportação para arquivo CSV ou log
-
-### Requisitos Recomendados (Bônus)
-- ✅ **Configuração dinâmica de limites** - Ajuste do threshold de alerta em tempo real via interface
-- ✅ **Timestamp** - Registro automático de data/hora em cada leitura
-- ✅ **Indicador de atualização** - Mostra data/hora da última leitura recebida
-- ✅ **Estatísticas** - Min, max, média, total de leituras e eventos de alerta
+- **Valor atual do sensor** - Exibição em tempo real com fonte grande e destacada
+- **Histórico gráfico** - Gráfico dos últimos 60 segundos de vibração
+- **Alertas visuais** - Indicadores de cor (verde=normal, vermelho=alerta) para valores fora dos limites
+- **Salvamento de dados** - Exportação para arquivo CSV
+- **Configuração dinâmica de limites** - Ajuste do threshold de alerta em tempo real via interface
+- **Timestamp** - Registro automático de data/hora em cada leitura
+- **Indicador de atualização** - Mostra data/hora da última leitura recebida
+- **Estatísticas** - Min, max, média, total de leituras e eventos de alerta
 
 ---
 
@@ -246,66 +242,3 @@ netstat -ano | findstr :5000
            │                                        │
            └───────────────────────────────────────>│
 ```
-
-### Formato JSON (Futuro)
-
-Potencial upgrade para protocolo JSON:
-
-```json
-{
-  "sensor_id": "SW420_GRUPO_10",
-  "timestamp": "2025-11-04T15:30:45.123Z",
-  "value": 2450,
-  "unit": "ADC",
-  "raw_value": 2450,
-  "status": "OK"
-}
-```
-
----
-
-## 🔐 Observações de Segurança
-
-- ⚠️ A GUI aceita qualquer dado UDP recebido na porta 5000
-- ⚠️ Para ambiente de produção, implementar validação e autenticação
-- ⚠️ Considerar HMAC ou assinatura digital para garantir integridade
-
----
-
-## 📚 Referências e Créditos
-
-- **Instituição**: Instituto Militar de Engenharia (IME)
-- **Disciplina**: Programação Aplicada
-- **Professor**: 1º Ten Nicolas Oliveira
-- **Data**: 20 de agosto de 2025 a 19 de novembro de 2025
-
----
-
-## 📄 Licença
-
-Projeto acadêmico - Instituto Militar de Engenharia
-
----
-
-## ✅ Checklist de Entrega
-
-- [x] Código-fonte em Python documentado
-- [x] Interface gráfica funcional (PyQt5)
-- [x] Recepção de dados via UDP em tempo real
-- [x] Histórico gráfico (últimos 60 segundos)
-- [x] Alertas visuais para valores anormais
-- [x] Salvamento em arquivo CSV
-- [x] Configuração dinâmica de limites
-- [x] Indicador de última atualização
-- [x] Estatísticas em tempo real
-- [x] README.md com instruções completas
-
----
-
-## 📞 Suporte
-
-Para dúvidas ou problemas:
-1. Verifique o seção "Troubleshooting"
-2. Revise a documentação do protocolo
-3. Teste a conexão de rede entre kit e PC
-4. Verifique os logs da aplicação

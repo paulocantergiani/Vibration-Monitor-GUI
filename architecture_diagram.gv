@@ -1,0 +1,87 @@
+digraph SystemArchitecture {
+    rankdir=TB;
+    bgcolor="#ffffff";
+
+    node [shape=box, style="rounded,filled", fontname="Arial", fontsize="11"];
+    edge [fontname="Arial", fontsize="10"];
+
+    // Hardware Layer
+    subgraph cluster_hardware {
+        style="rounded,filled";
+        color="#424242";
+        bgcolor="#fafafa";
+        label="Hardware - STM32MP1-DK1";
+        labelloc="t";
+        fontcolor="black";
+
+        STM32 [label="STM32MP1\n192.168.42.2", fillcolor="#ffccbc", color="#d84315", shape="box"];
+        Sensor [label="Sensor SW-420\nADC 0-65535", fillcolor="#ffccbc", color="#d84315", shape="box"];
+
+        Sensor -> STM32 [label="leitura", style="solid"];
+    }
+
+    // Communication Layer
+    subgraph cluster_communication {
+        style="rounded,filled";
+        color="#0277bd";
+        bgcolor="#e1f5fe";
+        label="Camada de Comunicação";
+        labelloc="t";
+        fontcolor="black";
+
+        Protocol [label="UDP Port 5000\nProto: CSV\n\nSENSOR_ID,TIMESTAMP,VALUE,UNIT",
+                  fillcolor="#81d4fa", color="#0277bd", shape="box"];
+    }
+
+    // Application Layer
+    subgraph cluster_application {
+        style="rounded,filled";
+        color="#1565c0";
+        bgcolor="#bbdefb";
+        label="Camada de Aplicação - GUI";
+        labelloc="t";
+        fontcolor="black";
+
+        GUI [label="PyQt5 Interface\n(VibrationMonitorGUI)", fillcolor="#90caf9", color="#1565c0", shape="box"];
+        Server [label="UDP Server\n(gui_server.py)", fillcolor="#90caf9", color="#1565c0", shape="box"];
+        Parser [label="CSV Parser\n(SensorData)", fillcolor="#90caf9", color="#1565c0", shape="box"];
+    }
+
+    // Display & Storage Layer
+    subgraph cluster_output {
+        style="rounded,filled";
+        color="#7b1fa2";
+        bgcolor="#f3e5f5";
+        label="Saída e Armazenamento";
+        labelloc="t";
+        fontcolor="black";
+
+        Display [label="Visualização\nGráficos, Alertas", fillcolor="#ce93d8", color="#7b1fa2", shape="box"];
+        CSV [label="Arquivo CSV\nHistórico de Dados", fillcolor="#ce93d8", color="#7b1fa2", shape="box"];
+        Stats [label="Estatísticas\nMin, Max, Média", fillcolor="#ce93d8", color="#7b1fa2", shape="box"];
+    }
+
+    // Connections
+    STM32 -> Protocol [label="envia", color="#d84315", penwidth="2"];
+    Protocol -> Server [label="recebe", color="#0277bd", penwidth="2"];
+    Server -> Parser [label="parseia", color="#1565c0", penwidth="2"];
+    Parser -> GUI [label="atualiza", color="#1565c0", penwidth="2"];
+
+    GUI -> Display [label="renderiza", color="#7b1fa2", penwidth="2"];
+    GUI -> CSV [label="exporta", color="#7b1fa2", penwidth="2"];
+    GUI -> Stats [label="calcula", color="#7b1fa2", penwidth="2"];
+
+    // Legend
+    subgraph cluster_legend {
+        style="rounded,filled";
+        color="#757575";
+        bgcolor="#eeeeee";
+        label="Legenda";
+        labelloc="t";
+
+        L1 [label="Hardware", fillcolor="#ffccbc"];
+        L2 [label="Rede", fillcolor="#81d4fa"];
+        L3 [label="Aplicação", fillcolor="#90caf9"];
+        L4 [label="Saída", fillcolor="#ce93d8"];
+    }
+}

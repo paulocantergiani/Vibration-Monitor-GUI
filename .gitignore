@@ -40,6 +40,11 @@ logs/
 data/
 *.log
 
+# Documentation (gerada pelo Doxygen)
+docs/html/
+docs/latex/
+docs/*.map
+
 # Test coverage
 .coverage
 htmlcov/

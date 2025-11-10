@@ -1,0 +1,109 @@
+digraph ClassDiagram {
+    rankdir=LR;
+    bgcolor="#ffffff";
+    node [shape=box, style="rounded,filled", fillcolor="#e1f5ff", color="#01579b", fontname="Arial", fontsize="10"];
+    edge [color="#01579b", fontname="Arial", fontsize="9"];
+
+    // UDPServer Class
+    UDPServer [label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="10">
+            <TR><TD COLSPAN="2" BGCOLOR="#01579b" PORT="title"><FONT COLOR="white"><B>UDPServer</B></FONT></TD></TR>
+            <TR><TD COLSPAN="2" BGCOLOR="#b3e5fc"><I>Servidor UDP para recepção de dados de sensores</I></TD></TR>
+            <TR><TD COLSPAN="2" HEIGHT="2"></TD></TR>
+            <TR><TD ALIGN="LEFT" COLSPAN="2"><FONT COLOR="#d32f2f">Atributos Privados</FONT></TD></TR>
+            <TR><TD ALIGN="LEFT">- ip: string</TD><TD ALIGN="LEFT">Endereço IP para bind</TD></TR>
+            <TR><TD ALIGN="LEFT">- port: int</TD><TD ALIGN="LEFT">Porta UDP (padrão: 5000)</TD></TR>
+            <TR><TD ALIGN="LEFT">- sock: socket</TD><TD ALIGN="LEFT">Socket UDP</TD></TR>
+            <TR><TD ALIGN="LEFT">- running: bool</TD><TD ALIGN="LEFT">Estado do servidor</TD></TR>
+            <TR><TD ALIGN="LEFT">- history: deque</TD><TD ALIGN="LEFT">Histórico de dados</TD></TR>
+            <TR><TD ALIGN="LEFT">- on_data_received: Callable</TD><TD ALIGN="LEFT">Callback para novos dados</TD></TR>
+            <TR><TD COLSPAN="2" HEIGHT="2"></TD></TR>
+            <TR><TD ALIGN="LEFT" COLSPAN="2"><FONT COLOR="#1976d2">Métodos Públicos</FONT></TD></TR>
+            <TR><TD ALIGN="LEFT">+ init(): bool</TD><TD ALIGN="LEFT">Inicializa socket UDP</TD></TR>
+            <TR><TD ALIGN="LEFT">+ start(): bool</TD><TD ALIGN="LEFT">Inicia servidor em thread</TD></TR>
+            <TR><TD ALIGN="LEFT">+ stop(): void</TD><TD ALIGN="LEFT">Para servidor graciosamente</TD></TR>
+            <TR><TD ALIGN="LEFT">+ export_to_csv(): bool</TD><TD ALIGN="LEFT">Exporta histórico para CSV</TD></TR>
+            <TR><TD ALIGN="LEFT">+ get_stats(): Dict</TD><TD ALIGN="LEFT">Retorna estatísticas</TD></TR>
+            <TR><TD ALIGN="LEFT">+ set_callbacks(): void</TD><TD ALIGN="LEFT">Define callbacks</TD></TR>
+        </TABLE>
+    >, fillcolor="#e3f2fd"];
+
+    // SensorData Class
+    SensorData [label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="10">
+            <TR><TD COLSPAN="2" BGCOLOR="#f57c00" PORT="title"><FONT COLOR="white"><B>SensorData</B></FONT></TD></TR>
+            <TR><TD COLSPAN="2" BGCOLOR="#ffe0b2"><I>Armazena dados individuais do sensor</I></TD></TR>
+            <TR><TD COLSPAN="2" HEIGHT="2"></TD></TR>
+            <TR><TD ALIGN="LEFT" COLSPAN="2"><FONT COLOR="#d32f2f">Atributos</FONT></TD></TR>
+            <TR><TD ALIGN="LEFT">- sensor_id: string</TD><TD ALIGN="LEFT">ID do sensor</TD></TR>
+            <TR><TD ALIGN="LEFT">- timestamp: string</TD><TD ALIGN="LEFT">ISO 8601</TD></TR>
+            <TR><TD ALIGN="LEFT">- value: float</TD><TD ALIGN="LEFT">Valor ADC (0-65535)</TD></TR>
+            <TR><TD ALIGN="LEFT">- unit: string</TD><TD ALIGN="LEFT">Unidade (ADC, mV, g)</TD></TR>
+            <TR><TD COLSPAN="2" HEIGHT="2"></TD></TR>
+            <TR><TD ALIGN="LEFT" COLSPAN="2"><FONT COLOR="#1976d2">Métodos</FONT></TD></TR>
+            <TR><TD ALIGN="LEFT">+ to_dict(): Dict</TD><TD ALIGN="LEFT">Converte para dicionário</TD></TR>
+        </TABLE>
+    >, fillcolor="#fff3e0"];
+
+    // ServerSignals Class
+    ServerSignals [label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="10">
+            <TR><TD COLSPAN="2" BGCOLOR="#7b1fa2" PORT="title"><FONT COLOR="white"><B>ServerSignals</B></FONT></TD></TR>
+            <TR><TD COLSPAN="2" BGCOLOR="#e1bee7"><I>Sinais PyQt5 para comunicação assíncrona</I></TD></TR>
+            <TR><TD COLSPAN="2" HEIGHT="2"></TD></TR>
+            <TR><TD ALIGN="LEFT" COLSPAN="2"><FONT COLOR="#1976d2">Sinais</FONT></TD></TR>
+            <TR><TD ALIGN="LEFT">+ data_received: pyqtSignal</TD><TD ALIGN="LEFT">Emite novos dados</TD></TR>
+            <TR><TD ALIGN="LEFT">+ error_occurred: pyqtSignal</TD><TD ALIGN="LEFT">Emite erros</TD></TR>
+        </TABLE>
+    >, fillcolor="#f3e5f5"];
+
+    // VibrationMonitorGUI Class
+    VibrationMonitorGUI [label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="10">
+            <TR><TD COLSPAN="2" BGCOLOR="#1976d2" PORT="title"><FONT COLOR="white"><B>VibrationMonitorGUI</B></FONT></TD></TR>
+            <TR><TD COLSPAN="2" BGCOLOR="#bbdefb"><I>Janela principal da aplicação</I></TD></TR>
+            <TR><TD COLSPAN="2" HEIGHT="2"></TD></TR>
+            <TR><TD ALIGN="LEFT" COLSPAN="2"><FONT COLOR="#d32f2f">Atributos</FONT></TD></TR>
+            <TR><TD ALIGN="LEFT">- server: UDPServer</TD><TD ALIGN="LEFT">Servidor UDP</TD></TR>
+            <TR><TD ALIGN="LEFT">- signals: ServerSignals</TD><TD ALIGN="LEFT">Sinais de comunicação</TD></TR>
+            <TR><TD ALIGN="LEFT">- history_values: list</TD><TD ALIGN="LEFT">Histórico de valores</TD></TR>
+            <TR><TD ALIGN="LEFT">- alert_threshold: int</TD><TD ALIGN="LEFT">Limiar de alerta</TD></TR>
+            <TR><TD COLSPAN="2" HEIGHT="2"></TD></TR>
+            <TR><TD ALIGN="LEFT" COLSPAN="2"><FONT COLOR="#1976d2">Métodos Principais</FONT></TD></TR>
+            <TR><TD ALIGN="LEFT">+ init_ui(): void</TD><TD ALIGN="LEFT">Inicializa interface</TD></TR>
+            <TR><TD ALIGN="LEFT">+ _create_realtime_tab(): QWidget</TD><TD ALIGN="LEFT">Aba Tempo Real</TD></TR>
+            <TR><TD ALIGN="LEFT">+ _create_statistics_tab(): QWidget</TD><TD ALIGN="LEFT">Aba Estatísticas</TD></TR>
+            <TR><TD ALIGN="LEFT">+ _create_config_tab(): QWidget</TD><TD ALIGN="LEFT">Aba Configurações</TD></TR>
+            <TR><TD ALIGN="LEFT">+ update_chart(): void</TD><TD ALIGN="LEFT">Atualiza gráfico</TD></TR>
+            <TR><TD ALIGN="LEFT">+ on_data_received(): void</TD><TD ALIGN="LEFT">Processa novos dados</TD></TR>
+        </TABLE>
+    >, fillcolor="#c8e6c9"];
+
+    // ModernCard Class
+    ModernCard [label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="10">
+            <TR><TD COLSPAN="2" BGCOLOR="#388e3c" PORT="title"><FONT COLOR="white"><B>ModernCard</B></FONT></TD></TR>
+            <TR><TD COLSPAN="2" BGCOLOR="#c8e6c9"><I>Componente visual customizado</I></TD></TR>
+            <TR><TD COLSPAN="2" HEIGHT="2"></TD></TR>
+            <TR><TD ALIGN="LEFT" COLSPAN="2"><FONT COLOR="#1976d2">Métodos</FONT></TD></TR>
+            <TR><TD ALIGN="LEFT">+ __init__(title): void</TD><TD ALIGN="LEFT">Cria card com estilo</TD></TR>
+        </TABLE>
+    >, fillcolor="#e8f5e9"];
+
+    // Relationships
+    VibrationMonitorGUI -> UDPServer [label="compõe", style="solid", penwidth="2"];
+    VibrationMonitorGUI -> ServerSignals [label="usa", style="solid", penwidth="2"];
+    VibrationMonitorGUI -> ModernCard [label="cria", style="dashed", penwidth="1.5"];
+    UDPServer -> SensorData [label="produz", style="solid", penwidth="2"];
+
+    // Legend
+    Legend [label=<
+        <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="3" CELLPADDING="5">
+            <TR><TD COLSPAN="2" BGCOLOR="#424242"><FONT COLOR="white"><B>Legenda</B></FONT></TD></TR>
+            <TR><TD BGCOLOR="#bbdefb">QMainWindow</TD><TD ALIGN="LEFT">Classe principal PyQt5</TD></TR>
+            <TR><TD BGCOLOR="#c8e6c9">Controlador</TD><TD ALIGN="LEFT">Gerencia lógica</TD></TR>
+            <TR><TD BGCOLOR="#fff3e0">Modelo</TD><TD ALIGN="LEFT">Estrutura de dados</TD></TR>
+            <TR><TD BGCOLOR="#e1bee7">Sinais</TD><TD ALIGN="LEFT">Comunicação assíncrona</TD></TR>
+        </TABLE>
+    >, shape="box", fillcolor="#fafafa"];
+}
