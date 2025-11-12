@@ -20,6 +20,18 @@ Interface gráfica em **PyQt5** para visualização em tempo real dos dados do s
 
 ---
 
+## 📸 Screenshots
+
+### Interface Gráfica da GUI
+
+![Interface da GUI](demonstracao_kit_interface.png)
+
+### Terminal de Execução
+
+![Terminal de Execução](demonstracao_kit_terminal.png)
+
+---
+
 ## 🏗️ Estrutura do Projeto
 
 ```
