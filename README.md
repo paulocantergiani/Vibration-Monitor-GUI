@@ -63,17 +63,39 @@ Nesta aba, o usuário acompanha o valor atual do sensor e o gráfico dos último
 
 **Recursos:**
 - Exibição do valor atual com destaque visual.
-- Gráfico histórico atualizado continuamente.
+- Gráfico histórico atualizado continuamente com **timestamps no eixo X** (em Brasília).
 - Indicador de status:
   - **Verde:** condição normal.
   - **Vermelho:** vibração acima do limite.
 - Botões de ação:
   - **Limpar Gráfico** – limpa o histórico visual.
   - **Exportar CSV** – salva os dados coletados em arquivo.
+  - **Exportar para PDF** – gera relatório visual com gráfico.
+  - **Exportar para XLSX** – cria planilha com dados e gráfico.
 
 ---
 
-### 4.2 Aba “Estatísticas” – Análise de Dados
+### 4.1.1 Gráfico Histórico com Timestamps
+
+O gráfico exibe os últimos 60 segundos de dados com **timestamps em tempo real (Brasília)** no eixo X:
+
+**Características:**
+- **Eixo X:** Timestamps em formato HH:MM:SS (Brasília)
+- **Eixo Y:** Valores de vibração em ADC (0-65535)
+- **Linha azul:** Dados de vibração em tempo real
+- **Linha vermelha tracejada:** Limite de alerta (threshold)
+- **Área vermelha:** Região acima do limite (visual alert)
+- **Marcadores:** Pontos de dados individuais para melhor visualização
+
+**Interpolação de Timestamps:**
+- O gráfico mostra aproximadamente **5 timestamps** distribuídos uniformemente
+- O último timestamp sempre é exibido
+- Rotação de 45° para melhor legibilidade
+- Atualização automática a cada dados recebidos
+
+---
+
+### 4.2 Aba "Estatísticas" – Análise de Dados
 
 Permite visualizar informações consolidadas das leituras recebidas.
 
@@ -330,7 +352,65 @@ Se não estiverem instaladas:
 pip install reportlab openpyxl
 ```
 
-### 10.5 Exemplos de Uso
+### 10.5 Salvamento Automático de Relatórios
+
+A aplicação realiza **salvamento automático de relatórios em PDF** a cada 5 minutos durante o monitoramento.
+
+**Configuração:**
+- **Intervalo padrão:** 5 minutos (300 segundos)
+- **Diretório de salvamento:** `~/Vibration_Reports/`
+- **Formato do arquivo:** `relatorio_{sensor_id}_{YYYYMMDD_HHMMSS}.pdf`
+
+**Exemplo de arquivo gerado:**
+```
+~/Vibration_Reports/relatorio_SW420_GRUPO_10_20251112_143045.pdf
+```
+
+**Como desabilitar o salvamento automático (opcional):**
+Edite `vibration_monitor_gui.py` e altere:
+```python
+self.auto_save_enabled = False  # Desabilita salvamento automático
+```
+
+### 10.6 Timer de Salvamento Automático
+
+A interface exibe um **contador regressivo** que mostra o tempo até o próximo salvamento automático de relatórios.
+
+**Características:**
+- **Localização:** Header superior direito da aplicação
+- **Formato:** `💾 Próximo salvamento em: 4m 32s`
+- **Atualização:** A cada 1 segundo
+- **Intervalo padrão:** 5 minutos (300 segundos)
+- **Reset:** Contador reinicia após cada salvamento
+
+**Exemplo de progresso:**
+```
+💾 Próximo salvamento em: 5m 00s  ← Acabou de salvar
+💾 Próximo salvamento em: 4m 30s  ← Após 30 segundos
+💾 Próximo salvamento em: 3m 00s  ← Após 2 minutos
+💾 Próximo salvamento em: 1m 00s  ← Falta 1 minuto
+💾 Próximo salvamento em: 0m 10s  ← Últimos 10 segundos
+💾 Próximo salvamento em: 0m 00s  ← Salvando agora...
+```
+
+**Como modificar o intervalo:**
+Edite `vibration_monitor_gui.py` na linha ~97:
+```python
+self.auto_save_interval = 600000  # 10 minutos ao invés de 5
+```
+
+---
+
+### 10.7 Fuso Horário - Brasília (BRT)
+
+Todos os timestamps exibidos e salvos nos relatórios utilizam o fuso horário de **Brasília (BRT - UTC-3)**.
+
+**Exemplos:**
+- Label de atualização: `⏱️ Última atualização: 14:30:45 (BRT)`
+- Logs de eventos: `14:30:45`
+- Nomes de arquivo: `relatorio_sensor_20251112_143045.pdf`
+
+### 10.8 Exemplos de Uso
 
 **Exportar todos os dados para análise posterior:**
 ```bash
@@ -342,6 +422,7 @@ pip install reportlab openpyxl
 ```bash
 # Clique em "Exportar para PDF" para criar um relatório formal
 # Ideal para apresentações, documentação técnica ou arquivamento
+# Nota: Relatórios automáticos são salvos a cada 5 minutos em ~/Vibration_Reports/
 ```
 
 **Análise em planilha:**

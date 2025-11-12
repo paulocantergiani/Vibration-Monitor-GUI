@@ -20,28 +20,29 @@ Funcionalidades:
 """
 
 import sys
-import json
-from datetime import datetime, timedelta
-from typing import Dict, List
+from datetime import datetime
+from typing import Dict
+import os
+import tempfile
+from zoneinfo import ZoneInfo
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QSpinBox, QFileDialog, QMessageBox, QGridLayout,
-    QComboBox, QGroupBox, QTabWidget, QTableWidget, QTableWidgetItem, QScrollArea
+    QGroupBox, QTabWidget, QTableWidget, QTableWidgetItem
 )
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject, QPropertyAnimation, QRect
-from PyQt5.QtGui import QFont, QColor, QIcon, QPalette
-from PyQt5.QtChart import QChart, QChartView, QLineSeries
-from PyQt5.QtCore import QPointF, QDateTime
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
+from PyQt5.QtGui import QFont
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-import os
-import tempfile
 
 from gui_server import UDPServer, SensorData
 from report_exporter import export_report
+
+# Timezone de Brasília
+TIMEZONE_BRASILIA = ZoneInfo("America/Sao_Paulo")
 
 
 class ServerSignals(QObject):
@@ -91,9 +92,19 @@ class VibrationMonitorGUI(QMainWindow):
         self.update_interval = 500  # Intervalo de atualização em ms
         self.max_graph_points = 60  # Máximo de pontos no gráfico
 
+        # Configurações de salvamento automático
+        self.auto_save_enabled = True  # Habilitar salvamento automático
+        self.auto_save_interval = 300000  # Intervalo em ms (5 minutos)
+        self.auto_save_timer = None  # Timer para salvamento automático
+        self.reports_dir = os.path.join(os.path.expanduser("~"), "Vibration_Reports")
+
+        # Criar diretório de relatórios se não existir
+        os.makedirs(self.reports_dir, exist_ok=True)
+
         self.init_ui()
         self.setup_signals()
         self.setup_server()
+        self.setup_auto_save()
 
     def init_ui(self):
         """Inicializa a interface do usuário"""
@@ -180,10 +191,17 @@ class VibrationMonitorGUI(QMainWindow):
         self.label_last_update.setFont(font_update)
         self.label_last_update.setStyleSheet("color: #666666;")
 
+        # Timer de salvamento automático
+        self.label_auto_save_timer = QLabel("💾 Próximo salvamento em: -")
+        font_auto_save = QFont("Segoe UI", 10)
+        self.label_auto_save_timer.setFont(font_auto_save)
+        self.label_auto_save_timer.setStyleSheet("color: #0066cc;")
+
         header_layout.addWidget(self.label_sensor_id)
         header_layout.addWidget(self.label_status)
         header_layout.addStretch()
         header_layout.addWidget(self.label_last_update)
+        header_layout.addWidget(self.label_auto_save_timer)
 
         return header_layout
 
@@ -556,6 +574,94 @@ class VibrationMonitorGUI(QMainWindow):
             self.label_status.setText("Status: ❌ Erro ao iniciar servidor")
             self.label_status.setStyleSheet("color: red;")
 
+    def setup_auto_save(self):
+        """Configura o timer para salvamento automático de relatórios"""
+        if self.auto_save_enabled:
+            # Timer para salvamento automático
+            self.auto_save_timer = QTimer()
+            self.auto_save_timer.timeout.connect(self.save_auto_report)
+            self.auto_save_timer.start(self.auto_save_interval)
+
+            # Timer para atualizar o countdown a cada segundo
+            self.auto_save_countdown_timer = QTimer()
+            self.auto_save_countdown_timer.timeout.connect(self.update_auto_save_countdown)
+            self.auto_save_countdown_timer.start(1000)  # Atualiza a cada 1 segundo
+
+            # Armazenar tempo do último salvamento
+            self.last_auto_save_time = datetime.now(TIMEZONE_BRASILIA)
+
+            print(f"[INFO] Salvamento automático habilitado a cada {self.auto_save_interval // 1000} segundos")
+
+    def save_auto_report(self):
+        """Salva automaticamente um relatório em PDF"""
+        if not self.server or not self.server.history:
+            return
+
+        try:
+            data_list, stats, graph_image_path = self._get_report_data()
+
+            if not data_list:
+                return
+
+            # Gerar nome do arquivo com timestamp de Brasília
+            now_brasilia = datetime.now(TIMEZONE_BRASILIA)
+            timestamp_str = now_brasilia.strftime("%Y%m%d_%H%M%S")
+            sensor_id = self.label_sensor_id.text().replace("🔌 Sensor: ", "").replace(" ", "_")
+
+            filename = os.path.join(
+                self.reports_dir,
+                f"relatorio_{sensor_id}_{timestamp_str}.pdf"
+            )
+
+            # Exportar relatório
+            success = export_report(
+                'pdf',
+                filename,
+                sensor_id.replace("_", " "),
+                data_list,
+                stats,
+                unit='ADC',
+                graph_image_path=graph_image_path
+            )
+
+            if success:
+                print(f"[INFO] Relatório salvo automaticamente: {filename}")
+                # Resetar tempo do último salvamento
+                self.last_auto_save_time = datetime.now(TIMEZONE_BRASILIA)
+            else:
+                print(f"[WARN] Falha ao salvar relatório automático: {filename}")
+
+        except Exception as e:
+            print(f"[ERROR] Erro ao salvar relatório automático: {e}")
+        finally:
+            # Limpar arquivo temporário do gráfico
+            if graph_image_path and os.path.exists(graph_image_path):
+                try:
+                    os.remove(graph_image_path)
+                except:
+                    pass
+
+    def update_auto_save_countdown(self):
+        """Atualiza o countdown até o próximo salvamento automático"""
+        if not self.auto_save_enabled or not hasattr(self, 'last_auto_save_time'):
+            self.label_auto_save_timer.setText("💾 Próximo salvamento em: -")
+            return
+
+        # Calcular tempo restante
+        now = datetime.now(TIMEZONE_BRASILIA)
+        time_since_last_save = (now - self.last_auto_save_time).total_seconds()
+        auto_save_interval_seconds = self.auto_save_interval / 1000
+
+        remaining_seconds = max(0, int(auto_save_interval_seconds - time_since_last_save))
+
+        # Formatar tempo (minutos:segundos)
+        minutes = remaining_seconds // 60
+        seconds = remaining_seconds % 60
+
+        self.label_auto_save_timer.setText(
+            f"💾 Próximo salvamento em: {minutes}m {seconds}s"
+        )
+
     def on_server_data(self, data: SensorData, stats: Dict):
         """Callback do servidor quando novos dados são recebidos"""
         self.signals.data_received.emit({
@@ -586,17 +692,16 @@ class VibrationMonitorGUI(QMainWindow):
         self.label_current_value.setText(str(int(data['value'])))
         self.label_current_unit.setText(data['unit'])
 
-        # Atualizar timestamp
-        timestamp_dt = datetime.fromisoformat(
-            data['timestamp'].replace('Z', '+00:00')
-        )
+        # Atualizar timestamp - usar horário atual do sistema (já em Brasília)
+        now_brasilia = datetime.now(TIMEZONE_BRASILIA)
         self.label_last_update.setText(
-            f"⏱️  Última atualização: {timestamp_dt.strftime('%H:%M:%S')}"
+            f"⏱️  Última atualização: {now_brasilia.strftime('%H:%M:%S')} (BRT)"
         )
 
-        # Adicionar ao histórico
+        # Adicionar ao histórico com timestamp em Brasília
+        # Usar a hora atual do sistema para garantir que está em Brasília
         self.history_values.append(data['value'])
-        self.history_timestamps.append(timestamp_dt)
+        self.history_timestamps.append(now_brasilia)
 
         # Manter apenas últimos N pontos
         if len(self.history_values) > self.max_graph_points:
@@ -612,7 +717,7 @@ class VibrationMonitorGUI(QMainWindow):
             self.label_alert_status.setText("🚨 ALERTA")
             self.label_alert_status.setStyleSheet("color: #d32f2f;")
             self.label_alert_message.setText("Vibração acima do limiar!")
-            self.add_event_log(data['timestamp'], "ALERTA", data['value'])
+            self.add_event_log("ALERTA", data['value'])
         else:
             self.label_alert_status.setText("✅ Normal")
             self.label_alert_status.setStyleSheet("color: #2e7d32;")
@@ -659,9 +764,31 @@ class VibrationMonitorGUI(QMainWindow):
             # Configurar labels e estilo
             self.ax.set_facecolor('#f8f9fa')
             self.ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5, color='#cccccc', zorder=0)
-            self.ax.set_xlabel('Tempo (s)', fontsize=11, fontweight='bold', color='#333333')
+            self.ax.set_xlabel('Hora (Brasília)', fontsize=11, fontweight='bold', color='#333333')
             self.ax.set_ylabel('Valor (ADC)', fontsize=11, fontweight='bold', color='#333333')
             self.ax.tick_params(colors='#666666', labelsize=10)
+
+            # Adicionar timestamps no eixo X
+            # Mostrar apenas um subconjunto de timestamps para não ficar congestionado
+            num_points = len(self.history_timestamps)
+            if num_points > 0:
+                # Determinar intervalo entre timestamps exibidos
+                interval = max(1, num_points // 5)  # Mostrar aproximadamente 5 timestamps
+                x_ticks = []
+                x_labels = []
+
+                for i in range(0, num_points, interval):
+                    x_ticks.append(i)
+                    # Os timestamps já estão em Brasília
+                    x_labels.append(self.history_timestamps[i].strftime('%H:%M:%S'))
+
+                # Adicionar o último ponto se não estiver incluído
+                if (num_points - 1) not in x_ticks:
+                    x_ticks.append(num_points - 1)
+                    x_labels.append(self.history_timestamps[-1].strftime('%H:%M:%S'))
+
+                self.ax.set_xticks(x_ticks)
+                self.ax.set_xticklabels(x_labels, rotation=45, ha='right')
 
             # Configurar cores dos spines
             for spine in self.ax.spines.values():
@@ -677,12 +804,16 @@ class VibrationMonitorGUI(QMainWindow):
         # Desenhar canvas
         self.canvas.draw()
 
-    def add_event_log(self, timestamp: str, event_type: str, value: float):
+    def add_event_log(self, event_type: str, value: float):
         """Adiciona um evento ao log"""
         row = self.table_events.rowCount()
         self.table_events.insertRow(row)
 
-        self.table_events.setItem(row, 0, QTableWidgetItem(timestamp))
+        # Usar horário atual do sistema (já em Brasília)
+        now_brasilia = datetime.now(TIMEZONE_BRASILIA)
+        timestamp_str = now_brasilia.strftime('%H:%M:%S')
+
+        self.table_events.setItem(row, 0, QTableWidgetItem(timestamp_str))
         self.table_events.setItem(row, 1, QTableWidgetItem(event_type))
         self.table_events.setItem(row, 2, QTableWidgetItem(str(int(value))))
         self.table_events.setItem(
@@ -704,8 +835,8 @@ class VibrationMonitorGUI(QMainWindow):
         self.update_chart()
 
     def on_export_csv(self):
-        """Exporta dados para arquivo CSV"""
-        if not self.server or not self.server.history:
+        """Exporta dados para arquivo CSV com timestamps em Brasília"""
+        if not self.history_values or not self.history_timestamps:
             QMessageBox.warning(
                 self, "Aviso", "Nenhum dado para exportar ainda."
             )
@@ -716,13 +847,27 @@ class VibrationMonitorGUI(QMainWindow):
         )
 
         if filename:
-            if self.server.export_to_csv(filename):
+            try:
+                # Exportar CSV com timestamps da GUI (em Brasília)
+                with open(filename, 'w', encoding='utf-8') as f:
+                    # Cabeçalho
+                    f.write("sensor_id,timestamp,value,unit\n")
+
+                    # Dados
+                    sensor_id = "SW420"
+                    if self.server and self.server.sensor_id:
+                        sensor_id = self.server.sensor_id
+
+                    for i, value in enumerate(self.history_values):
+                        timestamp_str = self.history_timestamps[i].isoformat()
+                        f.write(f"{sensor_id},{timestamp_str},{value},ADC\n")
+
                 QMessageBox.information(
                     self, "Sucesso", f"Dados exportados para:\n{filename}"
                 )
-            else:
+            except Exception as e:
                 QMessageBox.critical(
-                    self, "Erro", "Falha ao exportar dados."
+                    self, "Erro", f"Falha ao exportar dados:\n{str(e)}"
                 )
 
     def _get_report_data(self) -> tuple:
@@ -730,19 +875,26 @@ class VibrationMonitorGUI(QMainWindow):
         Prepara dados para exportação de relatório.
         Retorna: (lista_dados, estatísticas, caminho_gráfico)
         """
-        if not self.server or not self.server.history:
+        # Usar histórico da GUI que tem timestamps em Brasília
+        if not self.history_values or not self.history_timestamps:
             return None, None, None
 
         # Converter histórico para lista de dicionários
-        data_list = [
-            {
-                'sensor_id': item.sensor_id,
-                'timestamp': item.timestamp,
-                'value': item.value,
-                'unit': item.unit
-            }
-            for item in self.server.history
-        ]
+        data_list = []
+        for i, value in enumerate(self.history_values):
+            timestamp_str = self.history_timestamps[i].isoformat()
+
+            # Usar sensor_id do servidor se disponível
+            sensor_id = "SW420"
+            if self.server and self.server.sensor_id:
+                sensor_id = self.server.sensor_id
+
+            data_list.append({
+                'sensor_id': sensor_id,
+                'timestamp': timestamp_str,
+                'value': value,
+                'unit': 'ADC'
+            })
 
         # Obter estatísticas dos labels
         stats = {

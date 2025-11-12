@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 from io import BytesIO
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 from reportlab.lib import colors
@@ -27,6 +28,9 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')  # Backend não-interativo
 
+# Timezone de Brasília
+TIMEZONE_BRASILIA = ZoneInfo("America/Sao_Paulo")
+
 
 class ReportExporter:
     """Classe base para exportação de relatórios."""
@@ -41,7 +45,7 @@ class ReportExporter:
         """
         self.sensor_id = sensor_id
         self.unit = unit
-        self.timestamp = datetime.now()
+        self.timestamp = datetime.now(TIMEZONE_BRASILIA)
 
     def _prepare_data(self, data_list: List[Dict]) -> pd.DataFrame:
         """Converte lista de dados em DataFrame."""
