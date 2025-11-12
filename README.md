@@ -71,6 +71,14 @@ Vibration-Monitor-GUI/
 - **Aba "Estatísticas"**: Métricas agregadas
 - **Aba "Configurações"**: Ajuste de limiar e log de eventos
 
+### Diagrama de Classes
+
+![Diagrama de Classes](class_diagram.png)
+
+### Arquitetura do Sistema
+
+![Diagrama de Arquitetura](architecture_diagram.png)
+
 ---
 
 ## 📡 Protocolo de Comunicação
