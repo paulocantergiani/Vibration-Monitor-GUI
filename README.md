@@ -22,9 +22,17 @@ Interface gráfica em **PyQt5** para visualização em tempo real dos dados do s
 
 ## 📸 Screenshots
 
-### Interface Gráfica da GUI
+### Aba Tempo Real - Interface Gráfica
 
 ![Interface da GUI](demonstracao_kit_interface.png)
+
+### Aba Estatísticas
+
+![Aba Estatísticas](demonstracao_kit_interface_estatisticas.png)
+
+### Aba Configurações
+
+![Aba Configurações](demonstracao_kit_interface_configuracoes.png)
 
 ### Terminal de Execução
 
