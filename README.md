@@ -244,12 +244,115 @@ ping 192.168.42.2
 Confirme que o IP de destino no firmware é `192.168.42.10`.
 
 ### Interface lenta
-**Causa:** Histórico de dados muito extenso.  
-**Solução:** Utilize o botão “Limpar Gráfico” ou reduza o tamanho do buffer em `gui_server.py`.
+**Causa:** Histórico de dados muito extenso.
+**Solução:** Utilize o botão "Limpar Gráfico" ou reduza o tamanho do buffer em `gui_server.py`.
 
 ---
 
-## 10. Conclusão
+## 10. Exportação de Relatórios
+
+A partir da versão 2.0, a aplicação suporta exportação de dados em múltiplos formatos (CSV, PDF e XLSX), permitindo a geração de relatórios profissionais com estatísticas, gráficos e histórico de leituras.
+
+### 10.1 Formatos Suportados
+
+**CSV (Comma Separated Values)**
+- Formato simples e compatível com qualquer ferramenta de análise.
+- Contém todas as leituras: sensor_id, timestamp, value, unit.
+- Ideal para importação em ferramentas externas (Excel, MATLAB, Python, etc.).
+
+**PDF (Portable Document Format)**
+- Relatório visual profissional com:
+  - Informações gerais (sensor, data/hora, total de leituras).
+  - Estatísticas consolidadas (mín, máx, média, eventos de alerta).
+  - Gráfico histórico embutido.
+  - Últimas 20 leituras em tabela detalhada.
+
+**XLSX (Excel Spreadsheet)**
+- Planilha interativa com:
+  - Informações gerais do monitoramento.
+  - Seção de estatísticas com formatação visual.
+  - Todas as leituras em tabela estruturada com cores alternadas.
+  - Gráfico histórico embutido (quando disponível).
+  - Pronto para análise e compartilhamento.
+
+### 10.2 Como Exportar
+
+Na aba **"Tempo Real"**, você encontrará quatro botões de ação:
+
+1. **🗑️ Limpar Gráfico** – Limpa o histórico visual
+2. **💾 Exportar para CSV** – Salva em formato CSV
+3. **📄 Exportar para PDF** – Gera relatório em PDF
+4. **📊 Exportar para XLSX** – Cria planilha em Excel
+
+**Procedimento:**
+
+1. Clique no botão correspondente ao formato desejado.
+2. Selecione o local e nomeie o arquivo na caixa de diálogo.
+3. Aguarde a conclusão (alguns segundos para PDF/XLSX com gráficos).
+4. O relatório estará pronto para usar.
+
+### 10.3 Conteúdo dos Relatórios
+
+**Exemplo de Relatório PDF:**
+```
+╔════════════════════════════════════════╗
+║  RELATÓRIO DE MONITORAMENTO            ║
+║  Dados de Vibração                     ║
+╠════════════════════════════════════════╣
+║ Sensor ID: SW420_GRUPO_10              ║
+║ Data/Hora: 12/11/2025 14:30:45         ║
+║ Unidade: ADC                           ║
+║ Total de Leituras: 150                 ║
+╠════════════════════════════════════════╣
+║ ESTATÍSTICAS                           ║
+║ Mínimo: 450.00 ADC                     ║
+║ Máximo: 5200.00 ADC                    ║
+║ Média: 2850.50 ADC                     ║
+║ Eventos de Alerta: 12                  ║
+╠════════════════════════════════════════╣
+║ [Gráfico histórico inserido]           ║
+║ [Tabela com últimas 20 leituras]       ║
+╚════════════════════════════════════════╝
+```
+
+### 10.4 Requisitos para Exportação
+
+As seguintes bibliotecas são necessárias:
+
+```bash
+# Instaladas automaticamente com requirements.txt
+reportlab==4.0.9    # Para geração de PDF
+openpyxl==3.1.5     # Para geração de XLSX
+```
+
+Se não estiverem instaladas:
+```bash
+pip install reportlab openpyxl
+```
+
+### 10.5 Exemplos de Uso
+
+**Exportar todos os dados para análise posterior:**
+```bash
+# Clique em "Exportar para CSV" e salve como dados_2025-11-12.csv
+# Abra em Python, MATLAB ou Excel para análise
+```
+
+**Gerar relatório executivo:**
+```bash
+# Clique em "Exportar para PDF" para criar um relatório formal
+# Ideal para apresentações, documentação técnica ou arquivamento
+```
+
+**Análise em planilha:**
+```bash
+# Clique em "Exportar para XLSX" para trabalhar com gráficos e fórmulas
+# Adicione cálculos, crie novos gráficos ou combine com outros dados
+```
+
+---
+
+## 11. Conclusão
 
 O desenvolvimento do **Vibration Monitor GUI** mostrou, na prática, como é possível unir o mundo dos sistemas embarcados com o das interfaces gráficas modernas, criando uma ferramenta simples, funcional e visualmente clara para acompanhar dados de sensores em tempo real.
 

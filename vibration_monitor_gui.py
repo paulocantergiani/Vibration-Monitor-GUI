@@ -37,8 +37,11 @@ from PyQt5.QtCore import QPointF, QDateTime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import os
+import tempfile
 
 from gui_server import UDPServer, SensorData
+from report_exporter import export_report
 
 
 class ServerSignals(QObject):
@@ -265,25 +268,116 @@ class VibrationMonitorGUI(QMainWindow):
 
         layout.addWidget(graph_group, 1)
 
-        # Botões de ação
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(10)
+        # Botões de ação - primeira linha
+        button_layout1 = QHBoxLayout()
+        button_layout1.setSpacing(10)
 
         btn_clear = QPushButton("🗑️  Limpar Gráfico")
         btn_clear.setMinimumHeight(40)
+        btn_clear.setMaximumWidth(200)
         btn_clear.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        btn_clear.setStyleSheet("""
+            QPushButton {
+                background-color: #0066cc;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #0052a3;
+            }
+            QPushButton:pressed {
+                background-color: #003d7a;
+            }
+        """)
         btn_clear.clicked.connect(self.on_clear_graph)
 
         btn_export = QPushButton("💾 Exportar para CSV")
         btn_export.setMinimumHeight(40)
+        btn_export.setMaximumWidth(200)
         btn_export.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        btn_export.setStyleSheet("""
+            QPushButton {
+                background-color: #0066cc;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #0052a3;
+            }
+            QPushButton:pressed {
+                background-color: #003d7a;
+            }
+        """)
         btn_export.clicked.connect(self.on_export_csv)
 
-        button_layout.addWidget(btn_clear)
-        button_layout.addWidget(btn_export)
-        button_layout.addStretch()
+        button_layout1.addWidget(btn_clear)
+        button_layout1.addWidget(btn_export)
+        button_layout1.addStretch()
 
-        layout.addLayout(button_layout)
+        # Botões de ação - segunda linha
+        button_layout2 = QHBoxLayout()
+        button_layout2.setSpacing(10)
+
+        btn_export_pdf = QPushButton("📄 Exportar para PDF")
+        btn_export_pdf.setMinimumHeight(40)
+        btn_export_pdf.setMaximumWidth(200)
+        btn_export_pdf.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        btn_export_pdf.setStyleSheet("""
+            QPushButton {
+                background-color: #d32f2f;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #b71c1c;
+            }
+            QPushButton:pressed {
+                background-color: #7f0000;
+            }
+        """)
+        btn_export_pdf.clicked.connect(self.on_export_pdf)
+
+        btn_export_xlsx = QPushButton("📊 Exportar para XLSX")
+        btn_export_xlsx.setMinimumHeight(40)
+        btn_export_xlsx.setMaximumWidth(200)
+        btn_export_xlsx.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        btn_export_xlsx.setStyleSheet("""
+            QPushButton {
+                background-color: #2e7d32;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #1b5e20;
+            }
+            QPushButton:pressed {
+                background-color: #003300;
+            }
+        """)
+        btn_export_xlsx.clicked.connect(self.on_export_xlsx)
+
+        button_layout2.addWidget(btn_export_pdf)
+        button_layout2.addWidget(btn_export_xlsx)
+        button_layout2.addStretch()
+
+        layout.addLayout(button_layout1)
+        layout.addLayout(button_layout2)
 
         widget.setLayout(layout)
         return widget
@@ -630,6 +724,143 @@ class VibrationMonitorGUI(QMainWindow):
                 QMessageBox.critical(
                     self, "Erro", "Falha ao exportar dados."
                 )
+
+    def _get_report_data(self) -> tuple:
+        """
+        Prepara dados para exportação de relatório.
+        Retorna: (lista_dados, estatísticas, caminho_gráfico)
+        """
+        if not self.server or not self.server.history:
+            return None, None, None
+
+        # Converter histórico para lista de dicionários
+        data_list = [
+            {
+                'sensor_id': item.sensor_id,
+                'timestamp': item.timestamp,
+                'value': item.value,
+                'unit': item.unit
+            }
+            for item in self.server.history
+        ]
+
+        # Obter estatísticas dos labels
+        stats = {
+            'min': float(self.label_min_value.text()) if self.label_min_value.text() else 0,
+            'max': float(self.label_max_value.text()) if self.label_max_value.text() else 0,
+            'avg': float(self.label_avg_value.text()) if self.label_avg_value.text() else 0,
+            'alerts': int(self.label_alert_events.text()) if self.label_alert_events.text() else 0,
+        }
+
+        # Salvar gráfico atual em arquivo temporário
+        graph_image_path = None
+        try:
+            # Criar diretório temporário se não existir
+            temp_dir = tempfile.gettempdir()
+            graph_image_path = os.path.join(temp_dir, 'vibration_graph.png')
+
+            # Salvar figura do matplotlib
+            if self.figure and self.canvas:
+                self.figure.savefig(graph_image_path, dpi=100, bbox_inches='tight')
+        except Exception as e:
+            print(f"Aviso: Não foi possível salvar gráfico: {e}")
+            graph_image_path = None
+
+        return data_list, stats, graph_image_path
+
+    def on_export_pdf(self):
+        """Exporta relatório em formato PDF"""
+        data_list, stats, graph_image_path = self._get_report_data()
+
+        if not data_list:
+            QMessageBox.warning(
+                self, "Aviso", "Nenhum dado para exportar ainda."
+            )
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Salvar relatório como PDF", "", "PDF Files (*.pdf)"
+        )
+
+        if filename:
+            try:
+                sensor_id = self.label_sensor_id.text().replace("🔌 Sensor: ", "")
+                success = export_report(
+                    'pdf',
+                    filename,
+                    sensor_id,
+                    data_list,
+                    stats,
+                    unit='ADC',
+                    graph_image_path=graph_image_path
+                )
+
+                if success:
+                    QMessageBox.information(
+                        self, "Sucesso", f"Relatório PDF exportado para:\n{filename}"
+                    )
+                else:
+                    QMessageBox.critical(
+                        self, "Erro", "Falha ao exportar relatório PDF."
+                    )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Erro", f"Erro ao exportar PDF:\n{str(e)}"
+                )
+            finally:
+                # Limpar arquivo temporário do gráfico
+                if graph_image_path and os.path.exists(graph_image_path):
+                    try:
+                        os.remove(graph_image_path)
+                    except:
+                        pass
+
+    def on_export_xlsx(self):
+        """Exporta relatório em formato XLSX"""
+        data_list, stats, graph_image_path = self._get_report_data()
+
+        if not data_list:
+            QMessageBox.warning(
+                self, "Aviso", "Nenhum dado para exportar ainda."
+            )
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Salvar relatório como XLSX", "", "Excel Files (*.xlsx)"
+        )
+
+        if filename:
+            try:
+                sensor_id = self.label_sensor_id.text().replace("🔌 Sensor: ", "")
+                success = export_report(
+                    'xlsx',
+                    filename,
+                    sensor_id,
+                    data_list,
+                    stats,
+                    unit='ADC',
+                    graph_image_path=graph_image_path
+                )
+
+                if success:
+                    QMessageBox.information(
+                        self, "Sucesso", f"Relatório XLSX exportado para:\n{filename}"
+                    )
+                else:
+                    QMessageBox.critical(
+                        self, "Erro", "Falha ao exportar relatório XLSX."
+                    )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Erro", f"Erro ao exportar XLSX:\n{str(e)}"
+                )
+            finally:
+                # Limpar arquivo temporário do gráfico
+                if graph_image_path and os.path.exists(graph_image_path):
+                    try:
+                        os.remove(graph_image_path)
+                    except:
+                        pass
 
     def apply_stylesheet(self):
         """Aplica estilo CSS moderno à aplicação"""
