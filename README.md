@@ -1,272 +1,260 @@
-# Interface Gráfica de Monitoramento - Sensor de Vibração STM32MP1
+# Interface Gráfica de Monitoramento – Sensor de Vibração STM32MP1
 
-## 📋 Descrição do Projeto
+## 1. Introdução
 
-Interface gráfica em **PyQt5** para visualização em tempo real dos dados do sensor de vibração **SW-420** conectado ao kit **STM32MP1-DK1**.
+Este projeto implementa uma interface gráfica desenvolvida em **Python (PyQt5)** para monitoramento em tempo real do **sensor de vibração SW-420**, conectado ao kit **STM32MP1-DK1**.
 
-
----
-
-## 🎯 Funcionalidades
-
-- **Valor atual do sensor** - Exibição em tempo real com fonte grande e destacada
-- **Histórico gráfico** - Gráfico dos últimos 60 segundos de vibração
-- **Alertas visuais** - Indicadores de cor (verde=normal, vermelho=alerta) para valores fora dos limites
-- **Salvamento de dados** - Exportação para arquivo CSV
-- **Configuração dinâmica de limites** - Ajuste do threshold de alerta em tempo real via interface
-- **Timestamp** - Registro automático de data/hora em cada leitura
-- **Indicador de atualização** - Mostra data/hora da última leitura recebida
-- **Estatísticas** - Min, max, média, total de leituras e eventos de alerta
+O sistema foi projetado para exibir os valores capturados pelo sensor, gerar alertas visuais em caso de vibração excessiva e armazenar os dados para análise posterior.  
+A aplicação é voltada para uso educacional, demonstrações de sistemas embarcados e aplicações industriais de detecção de vibração.
 
 ---
 
-## 📸 Screenshots
+## 2. Visão Geral do Sistema
 
-### Aba Tempo Real - Interface Gráfica
+A figura abaixo mostra o fluxo completo de comunicação entre o kit STM32MP1 e o computador que executa a interface.
 
-![Interface da GUI](demonstracao_kit_interface.png)
+![Arquitetura do Sistema](architecture_diagram.png)
 
-### Aba Estatísticas
-
-![Aba Estatísticas](demonstracao_kit_interface_estatisticas.png)
-
-### Aba Configurações
-
-![Aba Configurações](demonstracao_kit_interface_configuracoes.png)
-
-### Terminal de Execução
-
-![Terminal de Execução](demonstracao_kit_terminal.png)
+1. O **sensor SW-420** detecta vibrações e envia o valor ao microcontrolador.  
+2. O **STM32MP1** formata a leitura e envia via **UDP** ao computador host.  
+3. O computador executa o software **Vibration Monitor GUI**, que:
+   - Recebe as mensagens UDP.
+   - Atualiza o valor em tempo real.
+   - Exibe gráficos e estatísticas.
+   - Gera alertas e permite exportação de dados.
 
 ---
 
-## 🏗️ Estrutura do Projeto
+## 3. Estrutura do Projeto
 
 ```
 Vibration-Monitor-GUI/
-├── gui_server.py                 # Servidor UDP com suporte a callbacks
-├── vibration_monitor_gui.py      # Interface gráfica PyQt5 principal
-├── requirements.txt              # Dependências Python
-└── README.md                     # Este arquivo
+├── gui_server.py             # Servidor UDP e manipulação de dados
+├── vibration_monitor_gui.py  # Interface principal em PyQt5
+├── requirements.txt          # Dependências do ambiente Python
+└── README.md                 # Documentação do projeto
 ```
 
-### Arquivo: `gui_server.py`
+### Componentes Principais
 
-**Classe `SensorData`**: Representa um dado individual do sensor
-- `sensor_id`: Identificador do sensor
-- `timestamp`: Data/hora em ISO 8601
-- `value`: Valor lido
-- `unit`: Unidade de medida
+**gui_server.py**
+- Contém o servidor UDP responsável por receber e armazenar as mensagens enviadas pelo kit.
+- Classes:
+  - `SensorData`: estrutura para cada leitura (ID, timestamp, valor e unidade).
+  - `UDPServer`: gerencia a comunicação e exporta dados para CSV.
 
-**Classe `UDPServer`**: Servidor UDP com suporte a eventos
-- `start()`: Inicia servidor em thread separada
-- `stop()`: Para graciosamente
-- `export_to_csv()`: Exporta histórico para arquivo CSV
-- Callbacks: `on_data_received` e `on_error` para eventos
-
-### Arquivo: `vibration_monitor_gui.py`
-
-**Classe `VibrationMonitorGUI`**: Janela principal da aplicação
-- **Aba "Tempo Real"**: Valor atual + gráfico histórico
-- **Aba "Estatísticas"**: Métricas agregadas
-- **Aba "Configurações"**: Ajuste de limiar e log de eventos
-
-### Diagrama de Classes
-
-![Diagrama de Classes](class_diagram.png)
-
-### Arquitetura do Sistema
-
-![Diagrama de Arquitetura](architecture_diagram.png)
+**vibration_monitor_gui.py**
+- Implementa a interface gráfica principal (classe `VibrationMonitorGUI`), organizada em três abas:
+  1. Tempo Real
+  2. Estatísticas
+  3. Configurações
 
 ---
 
-## 📡 Protocolo de Comunicação
+## 4. Interface Gráfica
 
-O servidor UDP espera mensagens no formato **CSV**:
+A aplicação apresenta uma interface intuitiva e modular, permitindo acompanhar as leituras do sensor e configurar limites de alerta em tempo real.
 
-```
+### 4.1 Aba “Tempo Real” – Monitoramento Contínuo
+
+Nesta aba, o usuário acompanha o valor atual do sensor e o gráfico dos últimos 60 segundos.
+
+![Interface da GUI](demonstracao_kit_interface.png)
+
+**Recursos:**
+- Exibição do valor atual com destaque visual.
+- Gráfico histórico atualizado continuamente.
+- Indicador de status:
+  - **Verde:** condição normal.
+  - **Vermelho:** vibração acima do limite.
+- Botões de ação:
+  - **Limpar Gráfico** – limpa o histórico visual.
+  - **Exportar CSV** – salva os dados coletados em arquivo.
+
+---
+
+### 4.2 Aba “Estatísticas” – Análise de Dados
+
+Permite visualizar informações consolidadas das leituras recebidas.
+
+![Aba Estatísticas](demonstracao_kit_interface_estatisticas.png)
+
+**Campos exibidos:**
+- Total de leituras recebidas.
+- Valor mínimo, máximo e médio.
+- Número total de eventos de alerta detectados.
+
+---
+
+### 4.3 Aba “Configurações” – Parâmetros e Limiar de Alerta
+
+Nesta aba é possível ajustar, em tempo real, o valor de limiar (threshold) do sensor e visualizar o registro de eventos.
+
+![Aba Configurações](demonstracao_kit_interface_configuracoes.png)
+
+**Recursos:**
+- Campo para alteração do limite de alerta (ADC).  
+- Log com histórico de eventos, contendo data, hora e valor.  
+- Alterações aplicadas imediatamente no monitoramento.
+
+---
+
+## 5. Comunicação e Protocolo
+
+O kit STM32MP1 envia os dados em formato **CSV**, via protocolo **UDP**, conforme estrutura abaixo:
+
+```csv
 SENSOR_ID,TIMESTAMP,VALUE,UNIT
 ```
 
 ### Exemplo:
-```
+```csv
 SW420_GRUPO_10,2025-11-04T15:30:45,2450,ADC
 ```
 
-### Campos:
 | Campo | Tipo | Descrição | Exemplo |
 |-------|------|-----------|---------|
-| SENSOR_ID | string | Identificador do sensor | `SW420_GRUPO_10` |
-| TIMESTAMP | string | Data/hora ISO 8601 | `2025-11-04T15:30:45` |
-| VALUE | int | Valor do ADC | `2450` |
-| UNIT | string | Unidade de medida | `ADC` |
+| SENSOR_ID | string | Identificador do sensor | SW420_GRUPO_10 |
+| TIMESTAMP | string | Data/hora ISO 8601 | 2025-11-04T15:30:45 |
+| VALUE | int | Valor lido do ADC | 2450 |
+| UNIT | string | Unidade de medida | ADC |
 
 ---
 
-## 🚀 Instruções de Execução
+## 6. Fluxo de Operação
 
-### 1. Pré-requisitos
+O diagrama a seguir ilustra o fluxo de funcionamento entre o kit STM32MP1 e o computador:
 
-- Python 3.6 ou superior
-- pip (gerenciador de pacotes Python)
-- Sistema operacional: Windows, macOS ou Linux
+```
+┌────────────────────┐                ┌──────────────────────────┐
+│ STM32MP1-DK1       │                │ PC (Interface PyQt5)     │
+│ IP: 192.168.42.2    │                │ IP: 192.168.42.10        │
+│                     │                │                          │
+│ 1. Inicializa o sensor SW-420        │
+│ 2. Cria socket UDP                   │
+│ 3. Envia pacotes CSV                 │ ───────────────► │
+│ 4. GUI recebe e atualiza interface   │
+│ 5. Intervalo de envio: 500 ms        │
+└────────────────────┘                └──────────────────────────┘
+```
 
-### 2. Instalação de Dependências
+---
+
+## 7. Guia de Instalação e Execução
+
+### 7.1 Requisitos
+
+- **Python 3.6 ou superior**
+- Sistema operacional compatível: **Windows, Linux ou macOS**
+- Pacotes listados em `requirements.txt`
+
+### 7.2 Instalação das Dependências
 
 ```bash
-# Instalar dependências do projeto
 pip install -r requirements.txt
 ```
 
-**Dependências principais:**
-- `PyQt5`: Framework para interface gráfica
-- `matplotlib`: Gráficos avançados (opcional)
-- `pandas`: Manipulação de dados CSV (opcional)
+Principais bibliotecas utilizadas:
+- `PyQt5` – interface gráfica.
+- `matplotlib` – geração de gráficos.
+- `pandas` – manipulação e exportação de dados.
 
-### 3. Configuração de Rede
+---
 
-Antes de executar a GUI, configure o IP do seu PC:
+### 7.3 Configuração de Rede
 
-**No Linux/macOS:**
+Para que o kit e o computador se comuniquem corretamente, ambos devem estar na mesma sub-rede.
+
+**Endereçamento recomendado:**
+
+| Dispositivo | IP | Máscara |
+|--------------|----|----------|
+| STM32MP1 | 192.168.42.2 | 255.255.255.0 |
+| PC (host) | 192.168.42.10 | 255.255.255.0 |
+
+**Configuração no Windows:**
+```
+Painel de Controle → Rede e Internet → Adaptador Ethernet → Propriedades → IPv4
+```
+
+**Configuração no Linux/macOS:**
 ```bash
-# Configure IP estático na mesma faixa que o kit
-# IP do kit: 192.168.42.2
-# IP do PC recomendado: 192.168.42.10
+sudo ifconfig eth0 192.168.42.10 netmask 255.255.255.0
 ```
 
-**No Windows:**
-```
-Painel de Controle → Rede e Internet → Configurações de Rede Avançadas
-→ Adaptador Ethernet → Propriedades → IPv4
-IP: 192.168.42.10
-Máscara: 255.255.255.0
-```
+---
 
-### 4. Execução da GUI
+### 7.4 Execução do Programa
+
+Após configurar a rede e instalar as dependências, execute:
 
 ```bash
-# Executar a interface gráfica
 python3 vibration_monitor_gui.py
 ```
 
-**Saída esperada:**
+Saída esperada no terminal:
+
+![Terminal de Execução](demonstracao_kit_terminal.png)
+
 ```
 [INFO] Servidor UDP iniciado em 192.168.42.10:5000
 ```
 
-Aguarde até que o kit STM32MP1 comece a enviar dados. A GUI exibirá:
-- Sensor conectado
-- Valor atual do sensor
-- Gráfico histórico
-- Alertas visuais
-
-### 5. Uso da Interface
-
-#### Aba "Tempo Real"
-- **Valor Atual**: Mostra o último valor lido em grande destaque
-- **Estado do Sensor**: Indica "Normal" ou "ALERTA" com código de cores
-- **Gráfico**: Visualiza os últimos 60 valores
-- **Botões**:
-  - "Limpar Gráfico": Limpa o histórico visual
-  - "Exportar para CSV": Salva dados em arquivo
-
-#### Aba "Estatísticas"
-- **Total de Leituras**: Número total de dados recebidos
-- **Valor Mínimo**: Menor vibração detectada
-- **Valor Máximo**: Maior vibração detectada
-- **Valor Médio**: Média aritmética das leituras
-- **Eventos de Alerta**: Número de vezes que o threshold foi excedido
-
-#### Aba "Configurações"
-- **Limiar de Alerta (ADC)**: Ajuste em tempo real o valor que ativa alertas
-- **Registro de Eventos**: Histórico de eventos com timestamp, tipo e valor
+A interface será exibida automaticamente e começará a atualizar assim que o kit enviar os dados via UDP.
 
 ---
 
-## 📊 Estrutura de Dados Enviada pelo Kit
-
-O kit STM32MP1 enviará mensagens no seguinte formato:
+## 8. Estrutura de Dados Transmitidos
 
 ```csv
 SW420_VIBRATION,2025-11-04T15:30:45,2450,ADC
 ```
 
-**Campos:**
-- `SW420_VIBRATION`: ID do sensor (configurável em `src/main.cpp` do kit)
-- `2025-11-04T15:30:45`: Timestamp em ISO 8601
-- `2450`: Valor bruto do ADC (0-65535)
-- `ADC`: Unidade de medida
+- **SW420_VIBRATION:** Identificador do sensor.  
+- **2025-11-04T15:30:45:** Data/hora ISO 8601.  
+- **2450:** Valor de leitura do ADC (0–65535).  
+- **ADC:** Unidade de medida.  
 
 ---
 
-## 🔧 Troubleshooting
+## 9. Solução de Problemas
 
-### Problema: "Erro ao inicializar socket: Address already in use"
-
-**Causa**: Outra aplicação está usando a porta 5000 ou um servidor anterior não foi encerrado.
-
-**Solução**:
+### Porta 5000 em uso
+**Mensagem:** `Address already in use`  
+**Causa:** Outro processo está utilizando a porta UDP 5000.  
+**Solução:**
 ```bash
-# Linux/macOS: Encontre o processo
+# Linux/macOS
 lsof -i :5000
-
-# Windows: Abra cmd e execute
+# Windows
 netstat -ano | findstr :5000
-
-# Encerre o processo e tente novamente
 ```
+Finalize o processo e execute novamente o programa.
 
-### Problema: "Servidor iniciado mas nenhum dado recebido"
+### Nenhum dado recebido
+**Possíveis causas:**
+1. O kit não está conectado na mesma rede.  
+2. O IP configurado no firmware está incorreto.  
+3. O programa de envio não está em execução.  
 
-**Causa**:
-1. Kit não está conectado na mesma rede
-2. IP do kit não está configurado corretamente
-3. Kit não está enviando dados
+**Verificação:**
+```bash
+ping 192.168.42.2
+```
+Confirme que o IP de destino no firmware é `192.168.42.10`.
 
-**Solução**:
-1. Verifique conectividade: `ping 192.168.42.2`
-2. Verifique que o kit está executando o programa `VibrationMonitor`
-3. Verifique se o IP configurado em `src/main.cpp` do kit é `192.168.42.10`
-
-### Problema: Interface não responsiva ou lenta
-
-**Causa**: Muitos dados acumulando no histórico.
-
-**Solução**:
-- Clique em "Limpar Gráfico" para reset
-- Reduza o tamanho máximo do histórico em `gui_server.py:32`
+### Interface lenta
+**Causa:** Histórico de dados muito extenso.  
+**Solução:** Utilize o botão “Limpar Gráfico” ou reduza o tamanho do buffer em `gui_server.py`.
 
 ---
 
-## 📝 Documentação do Protocolo
+## 10. Conclusão
 
-### Fluxo de Comunicação
+O desenvolvimento do **Vibration Monitor GUI** mostrou, na prática, como é possível unir o mundo dos sistemas embarcados com o das interfaces gráficas modernas, criando uma ferramenta simples, funcional e visualmente clara para acompanhar dados de sensores em tempo real.
 
-```
-┌─────────────────────┐                    ┌──────────────────┐
-│   STM32MP1-DK1      │                    │   PC (GUI)       │
-│  192.168.42.2       │                    │ 192.168.42.10    │
-│                     │                    │                  │
-└──────────┬──────────┘                    └────────┬─────────┘
-           │                                        │
-           │ 1. Inicializa sensor                   │
-           │    (SW-420 no ADC)                     │
-           │                                        │
-           │ 2. Inicializa socket UDP               │
-           │                                        │
-           │ 3. Envia pacote UDP:                   │
-           │ "SW420,2025-11-04T15:30:45,2450,ADC"  │
-           ├───────────────────────────────────────>│
-           │                                        │
-           │                                        │ 4. Servidor recebe
-           │                                        │    Parseia mensagem
-           │                                        │    Atualiza GUI
-           │                                        │
-           │ 5. Aguarda 500ms                       │
-           │    (intervalo configurável)            │
-           │                                        │
-           │ 6. Repete ciclo                        │
-           │                                        │
-           └───────────────────────────────────────>│
-```
+A estrutura do projeto foi pensada para ser flexível e fácil de expandir, permitindo que novos sensores, protocolos ou ajustes de comunicação possam ser incorporados sem grandes mudanças no código.
+
+Mais do que uma demonstração técnica, o sistema busca ser um recurso útil em aulas, testes de bancada e aplicações reais, ajudando a visualizar de forma intuitiva o comportamento físico captado pelo hardware — transformando números em informação compreensível e imediata.
+
+---
