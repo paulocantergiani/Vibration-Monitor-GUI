@@ -297,6 +297,8 @@ A partir da versão 2.0, a aplicação suporta exportação de dados em múltipl
   - Gráfico histórico embutido (quando disponível).
   - Pronto para análise e compartilhamento.
 
+![Interface de Download XLSX](demonstracao_kit_download_xlxs_interface.png)
+
 ### 10.2 Como Exportar
 
 Na aba **"Tempo Real"**, você encontrará quatro botões de ação:
